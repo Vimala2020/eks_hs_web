@@ -18,4 +18,5 @@ ENV/
 # IDEs and editors
 .vscode/
 .idea/
-.terraform*
+.terraform/
+.terraform.lock.hcl
