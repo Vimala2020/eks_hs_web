@@ -1,22 +1,90 @@
-# Byte-compiled / optimized / DLL files
+# ==============================
+# Python
+# ==============================
+
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 
-# Operating System Files
-.DS_Store
-Thumbs.db
-
-# Environments
-.env
-.venv
-env/
+# Python virtual environments
+.venv/
 venv/
+env/
 ENV/
 
-# IDEs and editors
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ==============================
+# Environment / Secrets
+# ==============================
+
+.env
+.env.*
+!.env.example
+
+# ==============================
+# IDE / Editor
+# ==============================
+
 .vscode/
 .idea/
-terraform/.terraform/*
-terraform/.terraform.lock.hcl
+*.swp
+*.swo
+.DS_Store
+
+# ==============================
+# OS Files
+# ==============================
+
+Thumbs.db
+.DS_Store
+
+# ==============================
+# Terraform
+# ==============================
+
+# Terraform working directory
+terraform/.terraform/
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Terraform crash logs
+crash.log
+crash.*.log
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variable files - may contain secrets
+*.tfvars
+*.tfvars.json
+
+# Keep the Terraform dependency lock file
+# terraform/.terraform.lock.hcl should NOT be ignored
+
+# ==============================
+# Logs
+# ==============================
+
+*.log
+
+
+*.dockerignore
