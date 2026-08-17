@@ -42,7 +42,7 @@ locals {
 
   node_group_name = "my-node-group"
 
-  instance_type = "t3.medium"
+  instance_type = "t3.small"
 
   desired_nodes = 2
   min_nodes     = 1
