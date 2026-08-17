@@ -20,7 +20,7 @@ DB_NAME = os.environ.get("DB_NAME")
 @app.route("/")
 def hello_world():
     return jsonify(
-        message="Hello, World! (updated)",
+        message="Hello, World!! (updated)",
         version=APP_VERSION,
         served_by=socket.gethostname(),
     )
