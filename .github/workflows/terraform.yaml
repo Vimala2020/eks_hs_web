@@ -17,6 +17,10 @@ jobs:
     name: "Terraform_VPC"
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./terraform
+
     steps:
     # 1. Checkout the repository code
     - name: Checkout
