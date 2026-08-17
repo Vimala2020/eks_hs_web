@@ -19,7 +19,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform
+        working-directory: /app/terraform
 
     steps:
     # 1. Checkout the repository code
