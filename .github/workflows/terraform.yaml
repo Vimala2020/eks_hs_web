@@ -19,7 +19,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./app/terraform
+        working-directory: ./terraform
 
     steps:
     # 1. Checkout the repository code
@@ -40,13 +40,13 @@ jobs:
 
     # 4. Initialize Terraform (Downloads providers/modules)
     - name: Terraform Init
-      working-directory: ./app/terraform
+      working-directory: ./terraform
       run: terraform init
 
 
     # 5. Check formatting rules
     - name: Terraform Format
-      working-directory: ./app/terraform
+      working-directory: ./terraform
       run: terraform fmt -check
 
     # 6. Generate speculative deployment plan (Runs on PRs and Pushes)
@@ -55,6 +55,6 @@ jobs:
 
     # 7. Apply the changes automatically (ONLY runs when merged into the main branch)
     - name: Terraform Apply
-      working-directory: ./app/terraform
+      working-directory: ./terraform
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: terraform apply -auto-approve -input=false
