@@ -78,8 +78,9 @@ locals {
 # CURRENT AWS ACCOUNT
 # ============================================================
 
-data "aws_caller_identity" "current" {}
-
+data "aws_iam_user" "user" {
+  user_name = "vimala"
+}
 
 # ============================================================
 # VPC
@@ -535,7 +536,7 @@ resource "aws_eks_access_entry" "current_user" {
 
   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_caller_identity.current.arn
+  principal_arn = data.aws_iam_user.user.arn
 
   type = "STANDARD"
 }
@@ -549,7 +550,7 @@ resource "aws_eks_access_policy_association" "current_user_admin" {
 
   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_caller_identity.current.arn
+  principal_arn = data.aws_iam_user.user.arn
 
   policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
