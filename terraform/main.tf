@@ -82,6 +82,10 @@ data "aws_iam_user" "user" {
   user_name = "vimala"
 }
 
+data "aws_iam_role" "github_role" {
+  name = "AWS_ROLE_TO_ASSUME"
+}
+
 # ============================================================
 # VPC
 # ============================================================
@@ -536,7 +540,7 @@ resource "aws_eks_access_entry" "current_user" {
 
   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_iam_user.user.arn
+  principal_arn = data.aws_iam_role.github_role.arn
 
   type = "STANDARD"
 }
@@ -550,7 +554,7 @@ resource "aws_eks_access_policy_association" "current_user_admin" {
 
   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_iam_user.user.arn
+  principal_arn = data.aws_iam_role.github_role.arn
 
   policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
