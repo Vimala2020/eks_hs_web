@@ -7,7 +7,7 @@ locals {
   # VPC
   # ----------------------------------------------------------
 
-  vpc_cidr = "10.1.0.0/16"
+   vpc_cidr = "10.1.0.0/16"
 
   # ----------------------------------------------------------
   # Availability Zones
@@ -78,9 +78,9 @@ locals {
 # CURRENT AWS ACCOUNT
 # ============================================================
 
-data "aws_iam_user" "user" {
-  user_name = "vimala"
-}
+#data "aws_iam_user" "user" {
+#  user_name = "vimala"
+#}
 
 data "aws_iam_role" "github_role" {
   name = "AWS_ROLE_TO_ASSUME"
