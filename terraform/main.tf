@@ -1022,28 +1022,30 @@ resource "helm_release" "alb_controller" {
 
   namespace = "kube-system"
 
-  set = [
-    {
-      name  = "clusterName"
-      value = aws_eks_cluster.eks.name
-    },
-    {
-      name  = "serviceAccount.create"
-      value = "false"
-    },
-    {
-      name  = "serviceAccount.name"
-      value = "aws-load-balancer-controller"
-    },
-    {
-      name  = "region"
-      value = local.aws_region
-    },
-    {
-      name  = "vpcId"
-      value = aws_vpc.eks_vpc.id
-    }
-  ]
+  set {
+    name  = "clusterName"
+    value = aws_eks_cluster.eks.name
+  }
+
+  set {
+    name  = "serviceAccount.create"
+    value = "false"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = "aws-load-balancer-controller"
+  }
+
+  set {
+    name  = "region"
+    value = local.aws_region
+  }
+
+  set {
+    name  = "vpcId"
+    value = aws_vpc.eks_vpc.id
+  }
 
   depends_on = [
     kubernetes_service_account.alb_controller,
