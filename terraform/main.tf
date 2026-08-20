@@ -7,7 +7,7 @@ locals {
   # VPC
   # ----------------------------------------------------------
 
-  vpc_cidr = "10.1.0.0/16"
+   vpc_cidr = "10.1.0.0/16"
 
   # ----------------------------------------------------------
   # Availability Zones
@@ -77,10 +77,6 @@ locals {
 # ============================================================
 # CURRENT AWS ACCOUNT
 # ============================================================
-
-data "aws_iam_user" "user" {
-  user_name = "vimala"
-}
 
 data "aws_iam_role" "github_role" {
   name = "AWS_ROLE_TO_ASSUME"
@@ -544,32 +540,6 @@ resource "aws_eks_access_entry" "current_user" {
 
   type = "STANDARD"
 }
-
-resource "aws_eks_access_entry" "vimala_user" {
-
-   cluster_name = aws_eks_cluster.eks.name
-
-   principal_arn = data.aws_iam_user.user.arn
-
-   type = "STANDARD"
- }
-
-resource "aws_eks_access_policy_association" "vimala_admin" {
-
-   cluster_name = aws_eks_cluster.eks.name
-
-   principal_arn = data.aws_iam_user.user.arn
-
-   policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-
-   access_scope {
-     type = "cluster"
-   }
-
-   depends_on = [
-     aws_eks_access_entry.vimala_user
-   ]
- }
 
 
 # ============================================================
