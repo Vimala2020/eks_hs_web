@@ -41,7 +41,7 @@ jobs:
     # 4. Initialize Terraform (Downloads providers/modules)
     - name: Terraform Init
       working-directory: ./terraform
-      run: terraform init
+      run: terraform init -upgrade
 
 
     # 5. Check formatting rules
