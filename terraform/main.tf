@@ -545,6 +545,32 @@ resource "aws_eks_access_entry" "current_user" {
   type = "STANDARD"
 }
 
+resource "aws_eks_access_entry" "vimala_user" {
+
+  cluster_name = aws_eks_cluster.eks.name
+
+  principal_arn = data.aws_iam_user.user.arn
+
+  type = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "vimala_admin" {
+
+  cluster_name = aws_eks_cluster.eks.name
+
+  principal_arn = data.aws_iam_user.user.arn
+
+  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [
+    aws_eks_access_entry.vimala_user
+  ]
+}
+
 
 # ============================================================
 # EKS ADMIN ACCESS
@@ -857,6 +883,21 @@ resource "kubernetes_service" "app" {
   depends_on = [
     kubernetes_deployment.app
   ]
+}
+
+data "tls_certificate" "eks_oidc" {
+  url = aws_eks_cluster.eks.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
+
+  url = aws_eks_cluster.eks.identity[0].oidc[0].issuer
+
+  client_id_list = ["sts.amazonaws.com"]
+
+  thumbprint_list = [data.tls_certificate.eks_oidc.certificates[0].sha1_fingerprint]
+
+  tags = local.tags
 }
 
 
