@@ -547,29 +547,29 @@ resource "aws_eks_access_entry" "current_user" {
 
 resource "aws_eks_access_entry" "vimala_user" {
 
-  cluster_name = aws_eks_cluster.eks.name
+   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_iam_user.user.arn
+   principal_arn = data.aws_iam_user.user.arn
 
-  type = "STANDARD"
-}
+   type = "STANDARD"
+ }
 
 resource "aws_eks_access_policy_association" "vimala_admin" {
 
-  cluster_name = aws_eks_cluster.eks.name
+   cluster_name = aws_eks_cluster.eks.name
 
-  principal_arn = data.aws_iam_user.user.arn
+   principal_arn = data.aws_iam_user.user.arn
 
-  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+   policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
-  access_scope {
-    type = "cluster"
-  }
+   access_scope {
+     type = "cluster"
+   }
 
-  depends_on = [
-    aws_eks_access_entry.vimala_user
-  ]
-}
+   depends_on = [
+     aws_eks_access_entry.vimala_user
+   ]
+ }
 
 
 # ============================================================
@@ -864,7 +864,7 @@ resource "kubernetes_service" "app" {
 
   spec {
 
-    type = "LoadBalancer"
+    type = "ClusterIP"
 
     selector = {
       app = "test-public"
@@ -1018,4 +1018,111 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
   role = aws_iam_role.alb_controller.name
 
   policy_arn = aws_iam_policy.alb_controller.arn
+}
+
+resource "kubernetes_service_account" "alb_controller" {
+
+  metadata {
+
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.alb_controller.arn
+    }
+
+    labels = {
+      "app.kubernetes.io/name"      = "aws-load-balancer-controller"
+      "app.kubernetes.io/component" = "controller"
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.alb_controller
+  ]
+}
+
+resource "helm_release" "alb_controller" {
+
+  name = "aws-load-balancer-controller"
+
+  repository = "https://aws.github.io/eks-charts"
+
+  chart = "aws-load-balancer-controller"
+
+  namespace = "kube-system"
+
+  set = [
+    {
+      name  = "clusterName"
+      value = aws_eks_cluster.eks.name
+    },
+    {
+      name  = "serviceAccount.create"
+      value = "false"
+    },
+    {
+      name  = "serviceAccount.name"
+      value = "aws-load-balancer-controller"
+    },
+    {
+      name  = "region"
+      value = local.aws_region
+    },
+    {
+      name  = "vpcId"
+      value = aws_vpc.eks_vpc.id
+    }
+  ]
+
+  depends_on = [
+    kubernetes_service_account.alb_controller,
+    aws_eks_addon.vpc_cni
+  ]
+}
+
+resource "kubernetes_ingress_v1" "app" {
+
+  metadata {
+
+    name = "test-public-ingress"
+
+    annotations = {
+      "alb.ingress.kubernetes.io/scheme"      = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type" = "ip"
+    }
+  }
+
+  spec {
+
+    ingress_class_name = "alb"
+
+    rule {
+
+      http {
+
+        path {
+
+          path      = "/"
+          path_type = "Prefix"
+
+          backend {
+
+            service {
+
+              name = kubernetes_service.app.metadata[0].name
+
+              port {
+                number = local.service_port
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    helm_release.alb_controller
+  ]
 }
