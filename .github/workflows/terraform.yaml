@@ -64,6 +64,17 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r app/requirements.txt pytest
+
+      - name: Run tests
+        run: python -m pytest app/tests/ -v
+
       - name: Generate image version tag
         id: meta
         run: |
@@ -77,11 +88,11 @@ jobs:
       - name: Build and push image to ECR
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./app
+          file: ./app/Dockerfile
           push: true
           tags: |
             ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

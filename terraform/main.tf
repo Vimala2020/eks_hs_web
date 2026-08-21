@@ -76,9 +76,18 @@ locals {
     Environment = "Development"
     ManagedBy   = "Terraform"
   }
+
+
+  # ----------------------------------------------------------
+  # RDS
+  # ----------------------------------------------------------
+
+  db_name           = "appdb"
+  db_username       = "appadmin"
+  db_instance_class = "db.t3.micro"
+  db_engine_version = "8.0"
+
 }
-
-
 # ============================================================
 # CURRENT AWS ACCOUNT
 # ============================================================
@@ -864,7 +873,7 @@ resource "kubernetes_deployment" "app" {
 
       spec {
 
-        container {
+                container {
 
           name = "test-public"
 
@@ -876,6 +885,61 @@ resource "kubernetes_deployment" "app" {
 
             container_port = local.container_port
           }
+
+          env {
+            name = "DB_HOST"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_credentials.metadata[0].name
+                key  = "DB_HOST"
+              }
+            }
+          }
+
+          env {
+            name = "DB_PORT"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_credentials.metadata[0].name
+                key  = "DB_PORT"
+              }
+            }
+          }
+
+          env {
+            name = "DB_NAME"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_credentials.metadata[0].name
+                key  = "DB_NAME"
+              }
+            }
+          }
+
+          env {
+            name = "DB_USER"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_credentials.metadata[0].name
+                key  = "DB_USER"
+              }
+            }
+          }
+
+          env {
+            name = "DB_PASSWORD"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.db_credentials.metadata[0].name
+                key  = "DB_PASSWORD"
+              }
+            }
+          }
         }
       }
     }
@@ -883,7 +947,8 @@ resource "kubernetes_deployment" "app" {
 
   depends_on = [
     aws_eks_node_group.nodes,
-    time_sleep.wait_for_access_entry
+    time_sleep.wait_for_access_entry,
+    kubernetes_secret.db_credentials
   ]
 }
 
@@ -1117,6 +1182,149 @@ resource "kubernetes_ingress_v1" "app" {
   ]
 }
 
+# ============================================================
+# RDS - DB SUBNET GROUP (PRIVATE SUBNETS ONLY)
+# ============================================================
+
+resource "aws_db_subnet_group" "mysql" {
+
+  name = "${local.cluster_name}-db-subnet-group"
+
+  subnet_ids = [
+    aws_subnet.private_a.id,
+    aws_subnet.private_b.id
+  ]
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${local.cluster_name}-db-subnet-group"
+    }
+  )
+}
+
+
+# ============================================================
+# RDS - SECURITY GROUP
+# ============================================================
+# Only allows MySQL traffic (3306) from the EKS cluster's
+# security group - not from the whole VPC.
+
+resource "aws_security_group" "mysql" {
+
+  name        = "${local.cluster_name}-mysql-sg"
+  description = "Allow MySQL access from EKS cluster only"
+  vpc_id      = aws_vpc.eks_vpc.id
+
+  ingress {
+
+    description     = "MySQL from EKS cluster"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_eks_cluster.eks.vpc_config[0].cluster_security_group_id]
+  }
+
+  egress {
+
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${local.cluster_name}-mysql-sg"
+    }
+  )
+}
+
+
+# ============================================================
+# RDS - RANDOM PASSWORD
+# ============================================================
+# Generated once, stored only in Terraform state and the
+# Kubernetes Secret below - never hardcoded in any file.
+
+resource "random_password" "db_password" {
+
+  length  = 20
+  special = false # avoids characters that need escaping in connection strings
+}
+
+
+# ============================================================
+# RDS - MYSQL INSTANCE (MULTI-AZ FOR HA)
+# ============================================================
+
+resource "aws_db_instance" "mysql" {
+
+  identifier = "${local.cluster_name}-mysql"
+
+  engine         = "mysql"
+  engine_version = local.db_engine_version
+
+  instance_class    = local.db_instance_class
+  allocated_storage = 20
+  storage_type      = "gp3"
+  storage_encrypted = true
+
+  db_name  = local.db_name
+  username = local.db_username
+  password = random_password.db_password.result
+
+  db_subnet_group_name   = aws_db_subnet_group.mysql.name
+  vpc_security_group_ids = [aws_security_group.mysql.id]
+
+  # HA: standby replica in a second AZ, automatic failover
+  multi_az = true
+
+  # Private subnets only - never internet-reachable
+  publicly_accessible = false
+
+  backup_retention_period = 7
+  skip_final_snapshot     = true # fine for dev/test; set false + add final_snapshot_identifier for prod
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${local.cluster_name}-mysql"
+    }
+  )
+}
+
+
+# ============================================================
+# KUBERNETES SECRET - DB CREDENTIALS
+# ============================================================
+# Keeps DB credentials out of the Deployment spec itself;
+# the pod pulls them at runtime via secretKeyRef.
+
+resource "kubernetes_secret" "db_credentials" {
+
+  metadata {
+
+    name = "db-credentials"
+  }
+
+  data = {
+    DB_HOST     = aws_db_instance.mysql.address
+    DB_PORT     = tostring(aws_db_instance.mysql.port)
+    DB_NAME     = local.db_name
+    DB_USER     = local.db_username
+    DB_PASSWORD = random_password.db_password.result
+  }
+
+  type = "Opaque"
+
+  depends_on = [
+    time_sleep.wait_for_access_entry
+  ]
+}
+
+
 
 # ============================================================
 # OUTPUTS
@@ -1194,4 +1402,8 @@ output "ingress_hostname" {
     kubernetes_ingress_v1.app.status[0].load_balancer[0].ingress[0].hostname,
     "ALB is still being provisioned"
   )
+}
+output "rds_endpoint" {
+
+  value = aws_db_instance.mysql.address
 }
