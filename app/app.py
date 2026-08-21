@@ -4,10 +4,13 @@ import socket
 
 import pymysql
 from flask import Flask, jsonify
+from prometheus_flask_exporter import PrometheusMetrics
 
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
 
+metrics.info("app_info", "Application info", version=os.environ.get("APP_VERSION", "dev"))
 
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 DB_HOST = os.environ.get("DB_HOST")

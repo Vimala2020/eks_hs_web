@@ -978,6 +978,8 @@ resource "kubernetes_service" "app" {
 
     port {
 
+      name = "http"
+
       port = local.service_port
 
       target_port = local.container_port
@@ -1167,6 +1169,8 @@ resource "kubernetes_ingress_v1" "app" {
 
               name = kubernetes_service.app.metadata[0].name
 
+                
+
               port {
                 number = local.service_port
               }
@@ -1324,6 +1328,109 @@ resource "kubernetes_secret" "db_credentials" {
   ]
 }
 
+# ============================================================
+# MONITORING - NAMESPACE
+# ============================================================
+
+resource "kubernetes_namespace" "monitoring" {
+
+  metadata {
+
+    name = "monitoring"
+  }
+
+  depends_on = [
+    time_sleep.wait_for_access_entry
+  ]
+}
+
+
+# ============================================================
+# MONITORING - KUBE-PROMETHEUS-STACK (PROMETHEUS + GRAFANA)
+# ============================================================
+
+resource "helm_release" "kube_prometheus_stack" {
+
+  name = "kube-prometheus-stack"
+
+  repository = "https://prometheus-community.github.io/helm-charts"
+
+  chart = "kube-prometheus-stack"
+
+  namespace = kubernetes_namespace.monitoring.metadata[0].name
+
+  set {
+    name  = "grafana.adminPassword"
+    value = random_password.grafana_admin.result
+  }
+
+  set {
+    name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
+    value = "false"
+  }
+
+  set {
+    name  = "grafana.service.type"
+    value = "ClusterIP"
+  }
+
+  depends_on = [
+    kubernetes_namespace.monitoring
+  ]
+}
+
+resource "random_password" "grafana_admin" {
+
+  length  = 16
+  special = false
+}
+
+resource "kubernetes_manifest" "app_service_monitor" {
+
+  manifest = {
+
+    apiVersion = "monitoring.coreos.com/v1"
+    kind       = "ServiceMonitor"
+
+    metadata = {
+
+      name      = "test-public-monitor"
+      namespace = kubernetes_namespace.monitoring.metadata[0].name
+
+      labels = {
+        release = "kube-prometheus-stack"
+      }
+    }
+
+    spec = {
+
+      selector = {
+
+        matchLabels = {
+          app = "test-public"
+        }
+      }
+
+      namespaceSelector = {
+
+        matchNames = ["default"]
+      }
+
+      endpoints = [
+        {
+          port     = "http"
+          path     = "/metrics"
+          interval = "15s"
+        }
+      ]
+    }
+  }
+
+  depends_on = [
+    helm_release.kube_prometheus_stack
+  ]
+}
+
 
 
 # ============================================================
@@ -1406,4 +1513,10 @@ output "ingress_hostname" {
 output "rds_endpoint" {
 
   value = aws_db_instance.mysql.address
+}
+
+output "grafana_admin_password" {
+
+  value     = random_password.grafana_admin.result
+  sensitive = true
 }
