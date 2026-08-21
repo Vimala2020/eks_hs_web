@@ -38,8 +38,7 @@ jobs:
         with:
           filters: |
             app:
-              - 'app/app.py'
-              - 'Dockerfile'
+              - 'app/**'
             terraform:
               - 'terraform/**'
 
