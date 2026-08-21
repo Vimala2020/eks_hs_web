@@ -1169,7 +1169,7 @@ resource "kubernetes_ingress_v1" "app" {
 
               name = kubernetes_service.app.metadata[0].name
 
-                
+
 
               port {
                 number = local.service_port
