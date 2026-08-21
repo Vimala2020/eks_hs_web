@@ -873,7 +873,7 @@ resource "kubernetes_deployment" "app" {
 
       spec {
 
-                container {
+        container {
 
           name = "test-public"
 
