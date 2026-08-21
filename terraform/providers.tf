@@ -22,6 +22,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.16"
     }
+        time = {
+      source  = "hashicorp/time"
+      version = "~> 0.11"
+    }
   }
 }
 
@@ -57,3 +61,4 @@ provider "helm" {
     }
   }
 }
+

@@ -874,7 +874,7 @@ resource "kubernetes_deployment" "app" {
 
   depends_on = [
     aws_eks_node_group.nodes,
-    aws_eks_access_policy_association.current_user_admin
+    time_sleep.wait_for_access_entry
   ]
 }
 
@@ -1011,7 +1011,8 @@ resource "kubernetes_service_account" "alb_controller" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.alb_controller
+    aws_iam_role_policy_attachment.alb_controller,
+    time_sleep.wait_for_access_entry
   ]
 }
 
