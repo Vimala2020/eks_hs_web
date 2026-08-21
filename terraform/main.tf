@@ -617,6 +617,15 @@ resource "aws_eks_access_entry" "current_user" {
   type = "STANDARD"
 }
 
+resource "time_sleep" "wait_for_access_entry" {
+
+  depends_on = [
+    aws_eks_access_policy_association.current_user_admin
+  ]
+
+  create_duration = "30s"
+}
+
 
 # ============================================================
 # EKS ADMIN ACCESS
