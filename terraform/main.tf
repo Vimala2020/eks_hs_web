@@ -1,4 +1,3 @@
-
 locals {
 
   aws_region = "ap-south-1"
@@ -7,7 +6,7 @@ locals {
   # VPC
   # ----------------------------------------------------------
 
-   vpc_cidr = "10.1.0.0/16"
+  vpc_cidr = "10.1.0.0/16"
 
   # ----------------------------------------------------------
   # Availability Zones
@@ -53,6 +52,12 @@ locals {
   # ----------------------------------------------------------
 
   ecr_image = "public.ecr.aws/v7m8e2b0/test-public:latest"
+
+  # ----------------------------------------------------------
+  # ECR
+  # ----------------------------------------------------------
+
+  ecr_repo_name = "myapp"
 
   # ----------------------------------------------------------
   # Application
@@ -451,6 +456,77 @@ resource "aws_route_table_association" "private_b" {
 
 
 # ============================================================
+# ECR REPOSITORY
+# ============================================================
+
+resource "aws_ecr_repository" "app" {
+
+  name = local.ecr_repo_name
+
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+
+    scan_on_push = true
+  }
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "${local.cluster_name}-ecr-repo"
+    }
+  )
+}
+
+
+# ============================================================
+# ECR LIFECYCLE POLICY - AUTO-EXPIRE OLD IMAGES
+# ============================================================
+
+resource "aws_ecr_lifecycle_policy" "app" {
+
+  repository = aws_ecr_repository.app.name
+
+  policy = jsonencode({
+
+    rules = [
+      {
+        rulePriority = 1
+
+        description = "Expire untagged images older than 7 days"
+
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 7
+        }
+
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
+
+        description = "Keep only the last 15 tagged images"
+
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["v"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 15
+        }
+
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+# ============================================================
 # EKS CLUSTER IAM ROLE
 # ============================================================
 
@@ -743,20 +819,6 @@ resource "aws_eks_addon" "coredns" {
 
 
 # ============================================================
-# EKS AUTHENTICATION
-# ============================================================
-
-data "aws_eks_cluster_auth" "eks" {
-
-  name = aws_eks_cluster.eks.name
-
-  depends_on = [
-    aws_eks_cluster.eks
-  ]
-}
-
-
-# ============================================================
 # KUBERNETES DEPLOYMENT
 # ============================================================
 
@@ -872,77 +934,8 @@ resource "aws_iam_openid_connect_provider" "eks_oidc" {
 
 
 # ============================================================
-# OUTPUTS
+# ALB CONTROLLER - IAM POLICY
 # ============================================================
-
-output "vpc_id" {
-
-  value = aws_vpc.eks_vpc.id
-}
-
-
-output "vpc_cidr" {
-
-  value = aws_vpc.eks_vpc.cidr_block
-}
-
-
-output "public_subnet_a" {
-
-  value = aws_subnet.public_a.id
-}
-
-
-output "public_subnet_b" {
-
-  value = aws_subnet.public_b.id
-}
-
-
-output "private_subnet_a" {
-
-  value = aws_subnet.private_a.id
-}
-
-
-output "private_subnet_b" {
-
-  value = aws_subnet.private_b.id
-}
-
-
-output "eks_cluster_name" {
-
-  value = aws_eks_cluster.eks.name
-}
-
-
-output "eks_cluster_endpoint" {
-
-  value = aws_eks_cluster.eks.endpoint
-}
-
-
-output "eks_cluster_version" {
-
-  value = aws_eks_cluster.eks.version
-}
-
-
-output "ecr_image" {
-
-  value = local.ecr_image
-}
-
-
-output "load_balancer_hostname" {
-
-  value = try(
-    kubernetes_service.app.status[0].load_balancer[0].ingress[0].hostname,
-    "Load Balancer is still being created"
-  )
-}
-
 
 resource "aws_iam_policy" "alb_controller" {
 
@@ -950,6 +943,11 @@ resource "aws_iam_policy" "alb_controller" {
 
   policy = file("${path.module}/iam_policy_alb_controller.json")
 }
+
+
+# ============================================================
+# ALB CONTROLLER - IRSA ROLE
+# ============================================================
 
 resource "aws_iam_role" "alb_controller" {
 
@@ -989,6 +987,11 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
 
   policy_arn = aws_iam_policy.alb_controller.arn
 }
+
+
+# ============================================================
+# ALB CONTROLLER - SERVICE ACCOUNT + HELM INSTALL
+# ============================================================
 
 resource "kubernetes_service_account" "alb_controller" {
 
@@ -1053,6 +1056,11 @@ resource "helm_release" "alb_controller" {
   ]
 }
 
+
+# ============================================================
+# INGRESS
+# ============================================================
+
 resource "kubernetes_ingress_v1" "app" {
 
   metadata {
@@ -1097,4 +1105,83 @@ resource "kubernetes_ingress_v1" "app" {
   depends_on = [
     helm_release.alb_controller
   ]
+}
+
+
+# ============================================================
+# OUTPUTS
+# ============================================================
+
+output "vpc_id" {
+
+  value = aws_vpc.eks_vpc.id
+}
+
+
+output "vpc_cidr" {
+
+  value = aws_vpc.eks_vpc.cidr_block
+}
+
+
+output "public_subnet_a" {
+
+  value = aws_subnet.public_a.id
+}
+
+
+output "public_subnet_b" {
+
+  value = aws_subnet.public_b.id
+}
+
+
+output "private_subnet_a" {
+
+  value = aws_subnet.private_a.id
+}
+
+
+output "private_subnet_b" {
+
+  value = aws_subnet.private_b.id
+}
+
+
+output "eks_cluster_name" {
+
+  value = aws_eks_cluster.eks.name
+}
+
+
+output "eks_cluster_endpoint" {
+
+  value = aws_eks_cluster.eks.endpoint
+}
+
+
+output "eks_cluster_version" {
+
+  value = aws_eks_cluster.eks.version
+}
+
+
+output "ecr_image" {
+
+  value = local.ecr_image
+}
+
+
+output "ecr_repository_url" {
+
+  value = aws_ecr_repository.app.repository_url
+}
+
+
+output "ingress_hostname" {
+
+  value = try(
+    kubernetes_ingress_v1.app.status[0].load_balancer[0].ingress[0].hostname,
+    "ALB is still being provisioned"
+  )
 }

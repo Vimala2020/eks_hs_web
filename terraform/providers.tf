@@ -3,9 +3,8 @@ terraform {
 
   backend "s3" {
     bucket = "vimala-testing-demo-storage"
-    key = "state-files/eks.tfstate"
+    key    = "state-files/eks.tfstate"
     region = "ap-south-1"
-    
   }
 
   required_providers {
@@ -23,7 +22,6 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.16"
     }
-
   }
 }
 
@@ -32,13 +30,16 @@ provider "aws" {
 }
 
 provider "kubernetes" {
+
   host = aws_eks_cluster.eks.endpoint
 
-  cluster_ca_certificate = base64decode(
-    aws_eks_cluster.eks.certificate_authority[0].data
-  )
+  cluster_ca_certificate = base64decode(aws_eks_cluster.eks.certificate_authority[0].data)
 
-  token = data.aws_eks_cluster_auth.eks.token
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", local.aws_region]
+  }
 }
 
 provider "helm" {
@@ -51,7 +52,7 @@ provider "helm" {
 
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "/usr/local/bin/aws"
+      command     = "aws"
       args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", local.aws_region]
     }
   }
