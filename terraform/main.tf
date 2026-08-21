@@ -34,6 +34,7 @@ locals {
   # ----------------------------------------------------------
 
   cluster_name = "my-eks-cluster-v1"
+  app_name     = "test-public"
 
   # ----------------------------------------------------------
   # Node Group
@@ -51,7 +52,7 @@ locals {
   # Public ECR image
   # ----------------------------------------------------------
 
-  ecr_image = "public.ecr.aws/v7m8e2b0/test-public:latest"
+  ecr_image = "${aws_ecr_repository.app.repository_url}:v52-a1b2c3d"
 
   # ----------------------------------------------------------
   # ECR
@@ -64,8 +65,8 @@ locals {
   # ----------------------------------------------------------
 
   container_port = 8080
-
-  service_port = 80
+  service_port   = 80
+  app_replicas   = 2
 
   # ----------------------------------------------------------
   # Tags
@@ -76,7 +77,6 @@ locals {
     Environment = "Development"
     ManagedBy   = "Terraform"
   }
-
 
   # ----------------------------------------------------------
   # RDS
@@ -844,21 +844,21 @@ resource "kubernetes_deployment" "app" {
 
   metadata {
 
-    name = "test-public"
+    name = local.app_name
 
     labels = {
-      app = "test-public"
+      app = local.app_name
     }
   }
 
   spec {
 
-    replicas = 2
+    replicas = local.app_replicas
 
     selector {
 
       match_labels = {
-        app = "test-public"
+        app = local.app_name
       }
     }
 
@@ -867,7 +867,7 @@ resource "kubernetes_deployment" "app" {
       metadata {
 
         labels = {
-          app = "test-public"
+          app = local.app_name
         }
       }
 
@@ -875,7 +875,7 @@ resource "kubernetes_deployment" "app" {
 
         container {
 
-          name = "test-public"
+          name = local.app_name
 
           image = local.ecr_image
 
@@ -961,10 +961,10 @@ resource "kubernetes_service" "app" {
 
   metadata {
 
-    name = "test-public"
+    name = local.app_name
 
     labels = {
-      app = "test-public"
+      app = local.app_name
     }
   }
 
@@ -973,7 +973,7 @@ resource "kubernetes_service" "app" {
     type = "ClusterIP"
 
     selector = {
-      app = "test-public"
+      app = local.app_name
     }
 
     port {
@@ -1142,11 +1142,12 @@ resource "kubernetes_ingress_v1" "app" {
 
   metadata {
 
-    name = "test-public-ingress"
+    name = "${local.app_name}-ingress"
 
     annotations = {
-      "alb.ingress.kubernetes.io/scheme"      = "internet-facing"
-      "alb.ingress.kubernetes.io/target-type" = "ip"
+      "alb.ingress.kubernetes.io/scheme"           = "internet-facing"
+      "alb.ingress.kubernetes.io/target-type"      = "ip"
+      "alb.ingress.kubernetes.io/healthcheck-path" = "/healthz"
     }
   }
 
@@ -1182,7 +1183,8 @@ resource "kubernetes_ingress_v1" "app" {
   }
 
   depends_on = [
-    helm_release.alb_controller
+    helm_release.alb_controller,
+    kubernetes_service.app
   ]
 }
 
